@@ -1,9 +1,17 @@
-FROM python:3.11-slim
+FROM public.ecr.aws/docker/library/python:3.13-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y \
-    && rm -rf /var/lib/apt/lists/*
-COPY ./piplock.txt .
-RUN pip3 install -r piplock.txt
-COPY . .
-ENTRYPOINT ["python", "-u", "main.py"]
 
+# Copy uv files
+COPY piplock.txt ./
+
+# Install dependencies
+RUN pip3 install -r piplock.txt
+
+# Copy agent code
+COPY . .
+
+# Expose port
+EXPOSE 8080
+
+# Run application
+CMD ["opentelemetry-instrument", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

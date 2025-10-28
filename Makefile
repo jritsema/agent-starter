@@ -40,3 +40,8 @@ start:
 	clear
 	@echo ""
 	python -u main.py
+
+## test: test the local api
+.PHONY: test
+test-local:
+	python client.py
