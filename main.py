@@ -5,15 +5,10 @@ from pydantic import BaseModel
 from typing import Dict, Any
 from strands import Agent
 from strands_tools import current_time, rss
-from log import JSONFormatter
+from llm_logging import LoggingHookProvider
 
-# Enables Strands debug log level
-logging.getLogger("strands").setLevel(logging.DEBUG)
-logging.getLogger("strands.models.bedrock").handlers = []
-llm_handler = logging.StreamHandler()
-llm_handler.setFormatter(JSONFormatter(
-    "%(levelname)s | %(name)s | %(message)s"))
-logging.getLogger("strands.models.bedrock").addHandler(llm_handler)
+# Enables Strands logging level
+logging.getLogger("strands").setLevel(logging.INFO)
 
 # Sets the logging format and streams logs to stderr
 logging.basicConfig(
@@ -71,6 +66,7 @@ async def invoke_agent(request: Request):
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 system_prompt=system_prompt,
                 tools=[current_time, rss],
+                hooks=[LoggingHookProvider()]
             )
         except Exception as e:
             logging.error(f"Agent initialization failed: {str(e)}")
