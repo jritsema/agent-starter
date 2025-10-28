@@ -39,9 +39,9 @@ install:
 start:
 	clear
 	@echo ""
-	python -u main.py
+	@if [ -f .env ]; then export $$(grep -v '^#' .env | xargs) && python -u main.py; else python -u main.py; fi
 
 ## test: test the local api
 .PHONY: test
-test-local:
+test:
 	python client.py
