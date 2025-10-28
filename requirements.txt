@@ -4,3 +4,4 @@ strands-agents
 strands-agents-tools
 strands-agents-tools[rss]
 aws-opentelemetry-distro
+bedrock-agentcore

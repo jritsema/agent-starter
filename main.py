@@ -1,4 +1,5 @@
 import logging
+from os import getenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -6,6 +7,10 @@ from typing import Dict, Any
 from strands import Agent
 from strands_tools import current_time, rss
 from llm_logging import LoggingHookProvider
+from botocore.config import Config
+from bedrock_agentcore.memory import MemoryClient
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
+from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 
 # Enables Strands logging level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -16,6 +21,21 @@ logging.basicConfig(
     format="%(levelname)s | %(name)s | %(message)s",
     handlers=[logging.StreamHandler()]
 )
+
+region = getenv("AWS_REGION")
+memory_id = getenv("MEMORY_ID")
+logging.warning(f"MEMORY_ID = {memory_id}")
+
+retry_config = Config(
+    region_name=region,
+    retries={
+        "max_attempts": 10,  # Increase from default 4 to 10
+        "mode": "adaptive"
+    }
+)
+
+memory_client = MemoryClient(region_name=region)
+
 
 app = FastAPI(title="My AI Agent", version="0.1.0")
 
@@ -49,6 +69,9 @@ class InvocationResponse(BaseModel):
     message: Dict[str, Any]
 
 
+SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"
+
+
 @app.post("/invocations", response_model=InvocationResponse)
 async def invoke_agent(request: Request):
     global strands_agent
@@ -57,8 +80,38 @@ async def invoke_agent(request: Request):
     req = await request.json()
     invoke_input = req["input"]
     prompt = invoke_input["prompt"]
+    user_id = invoke_input["user_id"]
+    session_id = request.headers.get(SESSION_HEADER)
+    logging.warning(f"initializing with session: {session_id} and user: {user_id}")
 
     if strands_agent is None:
+
+        # initialize a new agent once for each runtime container session.
+        # conversation state will be persisted in both local memory
+        # and remote agentcore memory. for resumed sessions,
+        # AgentCoreMemorySessionManager will rehydrate state from agentcore memory
+
+        logging.info("initializing session manager")
+        config = AgentCoreMemoryConfig(
+            memory_id=memory_id,
+            session_id=session_id,
+            actor_id=user_id,
+            retrieval_config={
+                "/preferences/{actorId}": RetrievalConfig(
+                    top_k=5,
+                    relevance_score=0.7
+                ),
+                "/facts/{actorId}": RetrievalConfig(
+                    top_k=10,
+                    relevance_score=0.3
+                ),
+            },
+        )
+
+        session_manager = AgentCoreMemorySessionManager(
+            boto_client_config=retry_config,
+            agentcore_memory_config=config
+        )
 
         logging.info("agent initializing")
         try:
@@ -66,7 +119,8 @@ async def invoke_agent(request: Request):
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 system_prompt=system_prompt,
                 tools=[current_time, rss],
-                hooks=[LoggingHookProvider()]
+                hooks=[LoggingHookProvider()],
+                session_manager=session_manager,
             )
         except Exception as e:
             logging.error(f"Agent initialization failed: {str(e)}")
