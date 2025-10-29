@@ -11,6 +11,7 @@ from botocore.config import Config
 from bedrock_agentcore.memory import MemoryClient
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+from strands_tools.code_interpreter import AgentCoreCodeInterpreter
 
 # Enables Strands logging level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -25,6 +26,8 @@ logging.basicConfig(
 region = getenv("AWS_REGION")
 memory_id = getenv("MEMORY_ID")
 logging.warning(f"MEMORY_ID = {memory_id}")
+code_interpreter_id = getenv("CODE_INTERPRETER_ID")
+logging.warning(f"CODE_INTERPRETER_ID = {code_interpreter_id}")
 
 retry_config = Config(
     region_name=region,
@@ -35,6 +38,7 @@ retry_config = Config(
 )
 
 memory_client = MemoryClient(region_name=region)
+
 
 
 app = FastAPI(title="My AI Agent", version="0.1.0")
@@ -113,12 +117,17 @@ async def invoke_agent(request: Request):
             agentcore_memory_config=config
         )
 
+        code_interpreter_tool = AgentCoreCodeInterpreter(
+            region=region,
+            identifier=code_interpreter_id,
+        )
+
         logging.info("agent initializing")
         try:
             strands_agent = Agent(
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 system_prompt=system_prompt,
-                tools=[current_time, rss],
+                tools=[current_time, rss, code_interpreter_tool.code_interpreter],
                 hooks=[LoggingHookProvider()],
                 session_manager=session_manager,
             )
