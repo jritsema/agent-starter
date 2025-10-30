@@ -12,6 +12,7 @@ from bedrock_agentcore.memory import MemoryClient
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 from strands_tools.code_interpreter import AgentCoreCodeInterpreter
+from strands_tools.browser import AgentCoreBrowser
 
 # Enables Strands logging level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -28,6 +29,8 @@ memory_id = getenv("MEMORY_ID")
 logging.warning(f"MEMORY_ID = {memory_id}")
 code_interpreter_id = getenv("CODE_INTERPRETER_ID")
 logging.warning(f"CODE_INTERPRETER_ID = {code_interpreter_id}")
+browser_id = getenv("BROWSER_ID")
+logging.warning(f"BROWSER_ID = {browser_id}")
 
 retry_config = Config(
     region_name=region,
@@ -38,7 +41,6 @@ retry_config = Config(
 )
 
 memory_client = MemoryClient(region_name=region)
-
 
 
 app = FastAPI(title="My AI Agent", version="0.1.0")
@@ -86,7 +88,8 @@ async def invoke_agent(request: Request):
     prompt = invoke_input["prompt"]
     user_id = invoke_input["user_id"]
     session_id = request.headers.get(SESSION_HEADER)
-    logging.warning(f"initializing with session: {session_id} and user: {user_id}")
+    logging.warning(
+        f"initializing with session: {session_id} and user: {user_id}")
 
     if strands_agent is None:
 
@@ -122,12 +125,21 @@ async def invoke_agent(request: Request):
             identifier=code_interpreter_id,
         )
 
+        browser_tool = AgentCoreBrowser(
+            region=region,
+            identifier=browser_id,
+        )
+
         logging.info("agent initializing")
         try:
             strands_agent = Agent(
                 model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 system_prompt=system_prompt,
-                tools=[current_time, rss, code_interpreter_tool.code_interpreter],
+                tools=[current_time,
+                       rss,
+                       code_interpreter_tool.code_interpreter,
+                       browser_tool.browser,
+                       ],
                 hooks=[LoggingHookProvider()],
                 session_manager=session_manager,
             )
