@@ -125,7 +125,7 @@ async def invoke_agent(request: Request):
         logging.info("agent initializing")
         try:
             strands_agent = Agent(
-                model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                model="us.anthropic.claude-sonnet-4-20250514-v1:0",
                 system_prompt=system_prompt,
                 tools=[current_time, rss, code_interpreter_tool.code_interpreter],
                 hooks=[LoggingHookProvider()],
