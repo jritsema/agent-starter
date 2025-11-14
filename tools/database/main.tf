@@ -69,7 +69,7 @@ module "docker_image" {
   source = "terraform-aws-modules/lambda/aws//modules/docker-build"
 
   create_ecr_repo = true
-  ecr_repo        = var.name
+  ecr_repo        = "${var.name}-database-tool"
   source_path     = "./"
   platform        = "linux/arm64"
 }
