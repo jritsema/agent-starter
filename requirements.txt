@@ -7,3 +7,4 @@ aws-opentelemetry-distro
 bedrock-agentcore
 playwright
 nest-asyncio
+mcp

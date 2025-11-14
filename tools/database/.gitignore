@@ -1,0 +1,10 @@
+.venv
+.vscode
+*.swp
+__pycache__
+*.zip
+.terraform
+terraform.tfvars
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup

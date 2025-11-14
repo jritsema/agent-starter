@@ -1,0 +1,35 @@
+{
+	"name": "terraform",
+	"description": "This agent helps with developing terraform code",
+	"prompt": "Your job is to help the user develop terraform code. Use your hashicorp tool to understand the latest aws resources and datasources.",
+	"mcpServers": {
+    "terraform": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "hashicorp/terraform-mcp-server:0.3.0"
+      ]
+    }
+	},
+	"tools": [
+		"fs_read",
+		"fs_write",
+		"execute_bash",
+		"use_aws",
+		"@terraform"
+	],
+	"toolAliases": {},
+	"allowedTools": [
+		"fs_read",
+		"fs_write",
+		"execute_bash",
+		"use_aws",
+		"@terraform/*"
+	],
+	"resources": [],
+	"hooks": {},
+	"toolsSettings": {},
+	"useLegacyMcpJson": false
+}
