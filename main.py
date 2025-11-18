@@ -15,7 +15,7 @@ from strands_tools.code_interpreter import AgentCoreCodeInterpreter
 from strands_tools.browser import AgentCoreBrowser
 from mcp.client.streamable_http import streamablehttp_client
 from strands.tools.mcp import MCPClient
-import requests
+from bedrock_agentcore.identity import requires_access_token
 
 # Enables Strands logging level
 logging.getLogger("strands").setLevel(logging.INFO)
@@ -29,6 +29,12 @@ logging.basicConfig(
 
 region = getenv("AWS_REGION")
 
+credential_provider_name = getenv("CREDENTIAL_PROVIDER_NAME")
+logging.warning(f"CREDENTIAL_PROVIDER_NAME = {credential_provider_name}")
+
+workload_name = getenv("WORKLOAD_NAME")
+logging.warning(f"WORKLOAD_NAME = {workload_name}")
+
 memory_id = getenv("MEMORY_ID")
 logging.warning(f"MEMORY_ID = {memory_id}")
 
@@ -38,14 +44,11 @@ logging.warning(f"CODE_INTERPRETER_ID = {code_interpreter_id}")
 browser_id = getenv("BROWSER_ID")
 logging.warning(f"BROWSER_ID = {browser_id}")
 
-client_id = getenv("CLIENT_ID")
-client_secret = getenv("CLIENT_SECRET")
-
-token_url = getenv("TOKEN_URL")
-logging.warning(f"TOKEN_URL = {token_url}")
-
 gateway_url = getenv("GATEWAY_URL")
 logging.warning(f"GATEWAY_URL = {gateway_url}")
+
+oauth_scope = getenv("OAUTH_SCOPE")
+logging.warning(f"OAUTH_SCOPE = {oauth_scope}")
 
 retry_config = Config(
     region_name=region,
@@ -93,8 +96,27 @@ class InvocationResponse(BaseModel):
 SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"
 
 
-def initialize_agent(session_id: str, user_id: str) -> Agent:
-    """Initialize a new agent with session and user context."""
+@requires_access_token(
+    provider_name=credential_provider_name,
+    scopes=[oauth_scope],
+    auth_flow="M2M"
+)
+async def create_mcp_client(access_token=None):
+    """
+    Return a remote MCP client with an access token retrieved by AgentCore Identity
+    """
+    return MCPClient(
+        lambda: streamablehttp_client(
+            url=gateway_url,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    )
+
+
+async def initialize_agent(session_id: str, user_id: str, access_token=None) -> Agent:
+    """
+    Initialize a new agent with session and user context.
+    """
     logging.info("initializing session manager")
     config = AgentCoreMemoryConfig(
         memory_id=memory_id,
@@ -127,21 +149,7 @@ def initialize_agent(session_id: str, user_id: str) -> Agent:
         identifier=browser_id,
     )
 
-    # get an OAuth access token
-    logging.warning("Requesting access token")
-    response = requests.post(
-        token_url,
-        data=f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}",
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
-    )
-    access_token = response.json()["access_token"]
-
-    mcp_client = MCPClient(
-        lambda: streamablehttp_client(
-            url=gateway_url,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-    )
+    mcp_client = await create_mcp_client()
 
     logging.info("agent initializing")
     try:
@@ -181,7 +189,7 @@ async def invoke_agent(request: Request):
         # conversation state will be persisted in both local memory
         # and remote agentcore memory. for resumed sessions,
         # AgentCoreMemorySessionManager will rehydrate state from agentcore memory
-        strands_agent = initialize_agent(session_id, user_id)
+        strands_agent = await initialize_agent(session_id, user_id)
 
     try:
         # invoke the agent
