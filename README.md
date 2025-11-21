@@ -34,7 +34,7 @@ python client.py
 To deploy the agent to [AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agents-tools-runtime.html) using Terraform, run:
 
 ```sh
-q chat --agent deploy -a "deploy this agent to aws"
+kiro-cli chat --agent deploy -a "deploy this agent to aws"
 ```
 
 If you prefer using a tool other than [Amazon Q CLI](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line.html), you can use the prompt [here](./.amazonq/cli-agents/deploy.json).
